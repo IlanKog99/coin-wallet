@@ -116,4 +116,18 @@ class TripsViewModelTest {
         assertEquals("EUR", e.vm.state.value.home.code)
         assertEquals(411L, e.vm.state.value.totals.grandHomeMinor)
     }
+
+    @Test
+    fun `deleteTrips removes all selected and posts one notice`() = runTest {
+        val e = env()
+        e.vm.createTrip("A", "CZK")
+        e.vm.createTrip("B", "EUR")
+        e.vm.createTrip("C", "JPY")
+        val (a, b, c) = e.trips.trips.value
+        e.vm.deleteTrips(setOf(a.id, c.id))
+        assertEquals(listOf(b), e.trips.trips.value)
+        assertEquals(com.ilankog.coinwallet.data.RepoNotice.Deleted(listOf(a, c)), e.trips.notice.value)
+        e.vm.deleteTrips(emptySet())
+        assertEquals(listOf(b), e.trips.trips.value)
+    }
 }

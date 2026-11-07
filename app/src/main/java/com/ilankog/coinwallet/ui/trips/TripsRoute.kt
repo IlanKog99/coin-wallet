@@ -1,5 +1,6 @@
 package com.ilankog.coinwallet.ui.trips
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -21,6 +22,11 @@ fun TripsRoute(
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     var showSheet by rememberSaveable { mutableStateOf(false) }
+    var selectedIds by rememberSaveable { mutableStateOf(listOf<String>()) }
+    val existing = state.totals.trips.map { it.trip.id }
+    // Ids of trips that no longer exist (deleted elsewhere) drop out of the selection.
+    val selected = selectedIds.filter { it in existing }.toSet()
+    BackHandler(enabled = selected.isNotEmpty()) { selectedIds = emptyList() }
 
     LifecycleStartEffect(vm) {
         vm.refreshIfStale()
@@ -41,6 +47,13 @@ fun TripsRoute(
         onNewTrip = { showSheet = true },
         onOpenTrip = onOpenTrip,
         onOpenSettings = onOpenSettings,
+        selected = selected,
+        onLongPressTrip = { selectedIds = listOf(it) },
+        onToggleTrip = { id -> selectedIds = if (id in selected) (selected - id).toList() else (selected + id).toList() },
+        onSelectAll = { selectedIds = existing },
+        onClearSelection = { selectedIds = emptyList() },
+        onDeleteSelected = { vm.deleteTrips(selected); selectedIds = emptyList() },
+        onSwipeDelete = { vm.deleteTrips(setOf(it)) },
     )
     if (showSheet) {
         TripSheet(
