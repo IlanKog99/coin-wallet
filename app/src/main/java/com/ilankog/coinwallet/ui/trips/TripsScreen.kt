@@ -14,6 +14,8 @@ import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -218,7 +220,7 @@ private fun TripCard(s: TripSummary, home: CurrencyInfo, selected: Boolean, onCl
         ),
         modifier = Modifier
             .clip(MaterialTheme.shapes.medium)
-            .combinedClickable(onClick = onClick, onLongClick = onLongClick, onLongClickLabel = "Select")
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick, onLongClickLabel = "Select", role = Role.Button)
             .semantics { this.selected = selected },
     ) {
         Row(
@@ -230,7 +232,7 @@ private fun TripCard(s: TripSummary, home: CurrencyInfo, selected: Boolean, onCl
                 Box(
                     Modifier.size(44.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary),
                     contentAlignment = Alignment.Center,
-                ) { Icon(Icons.Default.Check, contentDescription = "Selected", tint = MaterialTheme.colorScheme.onPrimary) }
+                ) { Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary) }
             } else {
                 CodeBadge(s.info.code)
             }
@@ -267,7 +269,7 @@ private fun ChangeBadge(n: Int) {
         shape = CircleShape,
         color = MaterialTheme.colorScheme.tertiaryContainer,
         contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
-        modifier = Modifier.padding(top = 4.dp).semantics { contentDescription = description },
+        modifier = Modifier.padding(top = 4.dp).clearAndSetSemantics { contentDescription = description },
     ) {
         Text("$n change", style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp))
     }
