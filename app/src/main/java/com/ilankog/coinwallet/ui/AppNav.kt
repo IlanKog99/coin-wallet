@@ -50,9 +50,10 @@ fun CoinWalletNavHost(container: AppContainer) {
                 withDismissAction = deleted == null,
                 duration = if (deleted != null) SnackbarDuration.Long else SnackbarDuration.Short,
             )
-            // Cleared only after it was shown: if the activity is recreated mid-snackbar, it shows again (Undo kept).
-            container.trips.clearNotice(n)
             if (result == SnackbarResult.ActionPerformed && deleted != null) container.trips.restore(deleted.trip)
+            // Cleared only after it was shown (and any Undo applied): if the activity is recreated meanwhile,
+            // the notice shows again. restore() is idempotent, so a repeated Undo is harmless.
+            container.trips.clearNotice(n)
         }
     }
 
