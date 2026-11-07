@@ -23,6 +23,7 @@ import com.ilankog.coinwallet.ui.trips.TripsRoute
 import com.ilankog.coinwallet.ui.trips.TripsViewModel
 import com.ilankog.coinwallet.ui.wallet.WalletRoute
 import com.ilankog.coinwallet.ui.wallet.WalletViewModel
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.serialization.Serializable
 
@@ -42,7 +43,8 @@ fun CoinWalletNavHost(container: AppContainer) {
 
     // App-wide repository notices (corrupt reset, save failure, delete + Undo) survive navigation.
     LaunchedEffect(container) {
-        container.trips.notice.filterNotNull().collect { n ->
+        // collectLatest: a newer notice (e.g. merged deletes) replaces the snackbar on screen at once.
+        container.trips.notice.filterNotNull().collectLatest { n ->
             val deleted = n as? RepoNotice.Deleted
             val result = snackbar.showSnackbar(
                 message = n.text(),
@@ -50,7 +52,7 @@ fun CoinWalletNavHost(container: AppContainer) {
                 withDismissAction = deleted == null,
                 duration = if (deleted != null) SnackbarDuration.Long else SnackbarDuration.Short,
             )
-            if (result == SnackbarResult.ActionPerformed && deleted != null) container.trips.restore(deleted.trip)
+            if (result == SnackbarResult.ActionPerformed && deleted != null) container.trips.restore(deleted.trips)
             // Cleared only after it was shown (and any Undo applied): if the activity is recreated meanwhile,
             // the notice shows again. restore() is idempotent, so a repeated Undo is harmless.
             container.trips.clearNotice(n)

@@ -27,5 +27,5 @@ fun RefreshResult.describe(): String = toMessage()?.text() ?: "Rates updated"
 fun RepoNotice.text(): String = when (this) {
     RepoNotice.TripsReset -> "Saved trips were damaged and were reset"
     RepoNotice.SaveFailed -> "Couldn't save. Changes may be lost."
-    is RepoNotice.Deleted -> "Trip deleted"
+    is RepoNotice.Deleted -> if (trips.size == 1) "Trip deleted" else "${trips.size} trips deleted"
 }

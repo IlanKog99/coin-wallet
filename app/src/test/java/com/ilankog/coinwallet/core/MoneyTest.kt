@@ -66,4 +66,19 @@ class MoneyTest {
         assertEquals("3d ago", RelativeTime.ago(now - 3 * 86_400_000L, now))
         assertEquals("just now", RelativeTime.ago(now + 60_000, now))
     }
+
+    @Test
+    fun `parseAmount accepts trip-currency prices`() {
+        assertEquals(1200L, Money.parseAmount("12", czk))
+        assertEquals(1250L, Money.parseAmount("12.5", czk))
+        assertEquals(1250L, Money.parseAmount(" 12,50 ", czk))
+        assertEquals(50L, Money.parseAmount(".5", czk))
+        assertEquals(1500L, Money.parseAmount("1500", jpy))
+    }
+
+    @Test
+    fun `parseAmount rejects bad input`() {
+        for (t in listOf("12.555", "0", "0.00", "", "abc", "1.2.3", "-1", "99999999999999999999")) assertNull(t, Money.parseAmount(t, czk))
+        assertNull(Money.parseAmount("1.5", jpy))
+    }
 }

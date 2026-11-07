@@ -1,6 +1,7 @@
 package com.ilankog.coinwallet.ui.common
 
 import com.ilankog.coinwallet.core.RateSnapshot
+import com.ilankog.coinwallet.core.Trip
 import com.ilankog.coinwallet.data.RefreshResult
 import com.ilankog.coinwallet.data.RepoNotice
 import org.junit.Assert.assertEquals
@@ -37,5 +38,12 @@ class RateStatusTest {
         assertEquals("Rates updated", RefreshResult.Success.describe())
         assertEquals("Saved trips were damaged and were reset", RepoNotice.TripsReset.text())
         assertEquals("Couldn't save. Changes may be lost.", RepoNotice.SaveFailed.text())
+    }
+
+    @Test
+    fun `delete notice wording`() {
+        val t = Trip("a", "A", "CZK", emptyMap(), createdAt = 0)
+        assertEquals("Trip deleted", RepoNotice.Deleted(listOf(t)).text())
+        assertEquals("3 trips deleted", RepoNotice.Deleted(listOf(t, t.copy(id = "b"), t.copy(id = "c"))).text())
     }
 }

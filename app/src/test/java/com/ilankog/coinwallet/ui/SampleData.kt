@@ -14,6 +14,7 @@ import java.math.BigDecimal
 object SampleData {
     const val NOW = 1_762_430_400_000L
     val ils = Currencies.orFallback("ILS")
+    val eur = Currencies.orFallback("EUR")
     val snapshot = RateSnapshot(
         fetchedAt = NOW - 2 * 3_600_000L,
         date = "2026-11-06",

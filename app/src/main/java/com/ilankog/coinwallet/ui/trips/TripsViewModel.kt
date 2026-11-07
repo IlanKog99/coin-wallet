@@ -83,6 +83,11 @@ class TripsViewModel(
         viewModelScope.launch { trips.create(clean, currency) }
     }
 
+    fun deleteTrips(ids: Set<String>) {
+        if (ids.isEmpty()) return
+        viewModelScope.launch { trips.delete(ids) }
+    }
+
     private fun build(
         list: List<Trip>, loaded: Boolean, snap: RateSnapshot?, busy: Boolean, last: RefreshResult?, s: Settings,
     ): TripsUiState {

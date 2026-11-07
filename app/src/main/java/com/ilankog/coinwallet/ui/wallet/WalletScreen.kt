@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
@@ -19,7 +20,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -48,8 +51,13 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import com.ilankog.coinwallet.core.ChangeNote
+import com.ilankog.coinwallet.core.CurrencyInfo
 import com.ilankog.coinwallet.core.DenomKind
 import com.ilankog.coinwallet.core.Denomination
 import com.ilankog.coinwallet.core.Money
@@ -57,6 +65,7 @@ import com.ilankog.coinwallet.core.RateSource
 import com.ilankog.coinwallet.core.TripRules
 import com.ilankog.coinwallet.core.TripSummary
 import com.ilankog.coinwallet.ui.components.DenomIcon
+import java.time.ZoneId
 
 data class WalletActions(
     val onBack: () -> Unit,
@@ -68,6 +77,8 @@ data class WalletActions(
     val onClearRate: () -> Unit,
     val onReset: () -> Unit,
     val onDelete: () -> Unit,
+    val onPay: () -> Unit = {},
+    val onDismissNote: (String) -> Unit = {},
 )
 
 fun rateLine(state: WalletUiState): String? {
@@ -84,7 +95,12 @@ fun rateLine(state: WalletUiState): String? {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun WalletScreen(state: WalletUiState, snackbarHostState: SnackbarHostState, actions: WalletActions) {
+fun WalletScreen(
+    state: WalletUiState,
+    snackbarHostState: SnackbarHostState,
+    actions: WalletActions,
+    zone: ZoneId = ZoneId.systemDefault(),
+) {
     val s = state.summary
     var menuOpen by remember { mutableStateOf(false) }
     val sameCurrency = s.info.code == state.home.code
@@ -128,7 +144,10 @@ fun WalletScreen(state: WalletUiState, snackbarHostState: SnackbarHostState, act
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            item(key = "header") { WalletHeader(state) }
+            items(s.trip.changeDue.asReversed(), key = { "note:" + it.id }) { n ->
+                ChangeNoteCard(n, s.info, zone, actions.onDismissNote)
+            }
+            item(key = "header") { WalletHeader(state, actions.onPay) }
             item(key = "coins") { SectionTitle("Coins") }
             items(coins, key = { it.key }) { d -> DenomRow(d, s, actions) }
             item(key = "notes") { SectionTitle("Notes") }
@@ -138,7 +157,7 @@ fun WalletScreen(state: WalletUiState, snackbarHostState: SnackbarHostState, act
 }
 
 @Composable
-private fun WalletHeader(state: WalletUiState) {
+private fun WalletHeader(state: WalletUiState, onPay: () -> Unit) {
     val s = state.summary
     Card(
         shape = MaterialTheme.shapes.large,
@@ -148,21 +167,60 @@ private fun WalletHeader(state: WalletUiState) {
         ),
     ) {
         Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("In your pocket", style = MaterialTheme.typography.labelLarge)
-            Text(
-                Money.format(s.totalMinor, s.info),
-                style = MaterialTheme.typography.displaySmall,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("In your pocket", style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
+                Button(onClick = onPay, enabled = s.totalMinor > 0) {
+                    Icon(Icons.Default.Payments, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Pay")
+                }
+            }
+            Text(named(Money.format(s.totalMinor, s.info), s.info.name), style = MaterialTheme.typography.displaySmall)
             if (s.info.code != state.home.code) {
                 val homeMinor = s.homeMinor
                 Text(
-                    if (homeMinor != null) "≈ " + Money.format(homeMinor, state.home) else "No rate",
+                    if (homeMinor != null) named("≈ " + Money.format(homeMinor, state.home), state.home.name) else AnnotatedString("No rate"),
                     style = MaterialTheme.typography.titleLarge,
                 )
             }
+            state.hop?.let { h ->
+                val minor = h.minor
+                Text(
+                    if (minor != null) named("≈ " + Money.format(minor, h.info), h.info.name + " (hop)") else AnnotatedString("Hop: no rate"),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+            }
             rateLine(state)?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+        }
+    }
+}
+
+/** "12,500 Ft · Hungarian Forint" with the name in smaller text; long names wrap instead of being cut. */
+@Composable
+private fun named(amount: String, name: String): AnnotatedString = buildAnnotatedString {
+    append(amount)
+    withStyle(MaterialTheme.typography.bodyMedium.toSpanStyle()) { append(" · $name") }
+}
+
+@Composable
+private fun ChangeNoteCard(n: ChangeNote, info: CurrencyInfo, zone: ZoneId, onDone: (String) -> Unit) {
+    val amount = Money.format(n.amountMinor, info)
+    Card(
+        shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+            contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+        ),
+    ) {
+        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Change to add: $amount", style = MaterialTheme.typography.titleMedium)
+                Text(noteTime(n.at, zone), style = MaterialTheme.typography.bodySmall)
+            }
+            TextButton(
+                onClick = { onDone(n.id) },
+                modifier = Modifier.semantics { contentDescription = "Done, change of $amount added" },
+            ) { Text("Done") }
         }
     }
 }

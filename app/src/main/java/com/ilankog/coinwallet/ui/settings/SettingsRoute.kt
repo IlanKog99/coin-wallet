@@ -12,20 +12,28 @@ import com.ilankog.coinwallet.ui.components.CurrencyPickerDialogContent
 @Composable
 fun SettingsRoute(vm: SettingsViewModel, onBack: () -> Unit) {
     val state by vm.state.collectAsStateWithLifecycle()
-    var picking by rememberSaveable { mutableStateOf(false) }
+    // Which picker is open: "home", "hop" or null. A string so it survives rotation.
+    var picking by rememberSaveable { mutableStateOf<String?>(null) }
     var query by rememberSaveable { mutableStateOf("") }
-    SettingsScreen(state, onBack = onBack, onPickHome = { picking = true }, onRefresh = vm::refresh)
-    if (picking) {
-        val close = { picking = false; query = "" }
-        AppDialog(onDismiss = close) {
-            CurrencyPickerDialogContent(
-                title = "Home currency",
-                query = query,
-                onQueryChange = { query = it },
-                selected = state.home.code,
-                onPick = { vm.setHome(it.code); close() },
-                onDismiss = close,
-            )
-        }
+    SettingsScreen(
+        state,
+        onBack = onBack,
+        onPickHome = { picking = "home" },
+        onRefresh = vm::refresh,
+        onHopEnabled = vm::setHopEnabled,
+        onPickHop = { picking = "hop" },
+    )
+    val target = picking ?: return
+    val hop = target == "hop"
+    val close = { picking = null; query = "" }
+    AppDialog(onDismiss = close) {
+        CurrencyPickerDialogContent(
+            title = if (hop) "Hop currency" else "Home currency",
+            query = query,
+            onQueryChange = { query = it },
+            selected = if (hop) state.hop.code else state.home.code,
+            onPick = { if (hop) vm.setHop(it.code) else vm.setHome(it.code); close() },
+            onDismiss = close,
+        )
     }
 }

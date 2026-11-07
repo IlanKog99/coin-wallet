@@ -13,6 +13,8 @@ interface SettingsSource {
     fun setHomeCurrency(code: String)
     fun setManualRate(currency: String, rate: BigDecimal, home: String)
     fun clearManualRate(currency: String)
+    fun setHopEnabled(enabled: Boolean)
+    fun setHopCurrency(code: String)
 }
 
 class SettingsStore(private val prefs: SharedPreferences, private val defaultHome: String) : SettingsSource {
@@ -41,5 +43,13 @@ class SettingsStore(private val prefs: SharedPreferences, private val defaultHom
 
     override fun clearManualRate(currency: String) {
         prefs.edit().remove(SettingsCodec.rateKey(currency)).remove(SettingsCodec.homeKey(currency)).apply()
+    }
+
+    override fun setHopEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(SettingsCodec.KEY_HOP_ENABLED, enabled).apply()
+    }
+
+    override fun setHopCurrency(code: String) {
+        prefs.edit().putString(SettingsCodec.KEY_HOP, code).apply()
     }
 }

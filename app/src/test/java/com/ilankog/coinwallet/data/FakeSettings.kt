@@ -21,4 +21,12 @@ class FakeSettings(home: String = "ILS") : SettingsSource {
     override fun clearManualRate(currency: String) {
         state.value = state.value.copy(manualRates = state.value.manualRates - currency)
     }
+
+    override fun setHopEnabled(enabled: Boolean) {
+        state.value = state.value.copy(hopEnabled = enabled)
+    }
+
+    override fun setHopCurrency(code: String) {
+        state.value = state.value.copy(hopCurrency = code)
+    }
 }
