@@ -7,6 +7,8 @@ import com.ilankog.coinwallet.core.Totals
 import com.ilankog.coinwallet.core.Trip
 import com.ilankog.coinwallet.ui.common.RateStatus
 import com.ilankog.coinwallet.ui.trips.TripsUiState
+import com.ilankog.coinwallet.ui.wallet.WalletActions
+import com.ilankog.coinwallet.ui.wallet.WalletUiState
 import java.math.BigDecimal
 
 object SampleData {
@@ -34,4 +36,17 @@ object SampleData {
         rateStatus = status,
         now = NOW,
     )
+
+    fun walletState(trip: Trip = prague): WalletUiState {
+        val info = Currencies.orFallback(trip.currency)
+        val m = manual[trip.currency]
+        return WalletUiState(
+            summary = Totals.summarize(trip, info, ils, m, snapshot),
+            home = ils,
+            rateDate = snapshot.date,
+            hasManualRate = m != null,
+        )
+    }
+
+    val noActions = WalletActions({}, {}, {}, {}, {}, {}, {}, {}, {})
 }
