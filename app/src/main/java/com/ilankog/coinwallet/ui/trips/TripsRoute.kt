@@ -10,6 +10,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ilankog.coinwallet.ui.common.text
+import kotlinx.coroutines.flow.filterNotNull
 
 @Composable
 fun TripsRoute(
@@ -19,17 +20,18 @@ fun TripsRoute(
     onOpenSettings: () -> Unit,
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
-    val message by vm.message.collectAsStateWithLifecycle()
     var showSheet by rememberSaveable { mutableStateOf(false) }
 
     LifecycleStartEffect(vm) {
         vm.refreshIfStale()
         onStopOrDispose { }
     }
-    LaunchedEffect(message) {
-        val m = message ?: return@LaunchedEffect
-        vm.messageShown()
-        snackbarHostState.showSnackbar(m.text())
+    // Keyed on vm, not on the message: clearing the message must not cancel the snackbar being shown.
+    LaunchedEffect(vm) {
+        vm.message.filterNotNull().collect { m ->
+            vm.messageShown()
+            snackbarHostState.showSnackbar(m.text())
+        }
     }
 
     TripsScreen(

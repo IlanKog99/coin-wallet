@@ -70,7 +70,7 @@ class TripsViewModel(
 
     /** Pull-to-refresh: failures also show a snackbar. */
     fun refresh() {
-        viewModelScope.launch { _message.value = rates.refresh().toMessage() }
+        viewModelScope.launch { rates.refresh().toMessage()?.let { _message.value = it } }
     }
 
     fun messageShown() {

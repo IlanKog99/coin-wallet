@@ -1,5 +1,6 @@
 package com.ilankog.coinwallet.ui.trips
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -62,6 +63,7 @@ fun TripSheet(
     var currency by rememberSaveable { mutableStateOf(initialCurrency) }
     var picking by rememberSaveable { mutableStateOf(false) }
     var query by rememberSaveable { mutableStateOf("") }
+    BackHandler(enabled = picking) { picking = false }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         TripSheetContent(
             title = title,
