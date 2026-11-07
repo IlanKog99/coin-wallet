@@ -61,7 +61,7 @@ class WalletViewModel(
     fun reset(): Unit = edit { TripRules.reset(it) }
 
     fun delete() {
-        viewModelScope.launch { trips.delete(tripId) }
+        viewModelScope.launch { trips.delete(setOf(tripId)) }
     }
 
     fun setManualRate(rate: BigDecimal) {

@@ -21,7 +21,7 @@ import java.util.UUID
 sealed interface RepoNotice {
     data object TripsReset : RepoNotice
     data object SaveFailed : RepoNotice
-    data class Deleted(val trip: Trip) : RepoNotice
+    data class Deleted(val trips: List<Trip>) : RepoNotice
 }
 
 /**
@@ -70,16 +70,20 @@ class TripRepository(
         next
     }
 
-    suspend fun delete(id: String): Trip? = mutex.withLock {
+    /** Deletes every trip in [ids] in one write; returns the deleted trips (empty when none matched). */
+    suspend fun delete(ids: Set<String>): List<Trip> = mutex.withLock {
         ensureLoaded()
-        val trip = _trips.value.firstOrNull { it.id == id } ?: return@withLock null
-        if (commit(_trips.value.filterNot { it.id == id })) _notice.value = RepoNotice.Deleted(trip)
-        trip
+        val gone = _trips.value.filter { it.id in ids }
+        if (gone.isEmpty()) return@withLock emptyList()
+        if (commit(_trips.value.filterNot { it.id in ids })) _notice.value = RepoNotice.Deleted(gone)
+        gone
     }
 
-    suspend fun restore(trip: Trip) = mutex.withLock {
+    /** Undo: re-adds the trips that are missing, in one write. Idempotent. */
+    suspend fun restore(trips: List<Trip>) = mutex.withLock {
         ensureLoaded()
-        if (_trips.value.none { it.id == trip.id }) commit(_trips.value + trip)
+        val missing = trips.filter { t -> _trips.value.none { it.id == t.id } }
+        if (missing.isNotEmpty()) commit(_trips.value + missing)
     }
 
     private suspend fun ensureLoaded() {

@@ -69,19 +69,45 @@ class TripRepositoryTest {
     fun `delete posts notice and restore brings the same trip back`() = runTest {
         val r = repo()
         val t = r.create("Prague", "CZK")
-        assertEquals(t, r.delete(t.id))
+        assertEquals(listOf(t), r.delete(setOf(t.id)))
         assertTrue(r.trips.value.isEmpty())
-        assertEquals(RepoNotice.Deleted(t), r.notice.value)
+        assertEquals(RepoNotice.Deleted(listOf(t)), r.notice.value)
         r.clearNotice(RepoNotice.SaveFailed)
-        assertEquals(RepoNotice.Deleted(t), r.notice.value) // other notice not cleared
-        r.clearNotice(RepoNotice.Deleted(t))
+        assertEquals(RepoNotice.Deleted(listOf(t)), r.notice.value) // other notice not cleared
+        r.clearNotice(RepoNotice.Deleted(listOf(t)))
         assertNull(r.notice.value)
-        r.restore(t)
-        r.restore(t) // idempotent
+        r.restore(listOf(t))
+        r.restore(listOf(t)) // idempotent
         assertEquals(listOf(t), r.trips.value)
         val again = repo()
         again.load()
         assertEquals(listOf(t), again.trips.value)
+    }
+
+    @Test
+    fun `bulk delete removes several and one undo restores only missing ones`() = runTest {
+        val r = repo()
+        val a = r.create("A", "CZK")
+        val b = r.create("B", "EUR")
+        val c = r.create("C", "JPY")
+        assertEquals(listOf(a, c), r.delete(setOf(a.id, c.id, "nope")))
+        assertEquals(listOf(b), r.trips.value)
+        assertEquals(RepoNotice.Deleted(listOf(a, c)), r.notice.value)
+        r.restore(listOf(a, b, c))
+        assertEquals(setOf(a, b, c), r.trips.value.toSet())
+        assertEquals(3, r.trips.value.size)
+        val again = repo()
+        again.load()
+        assertEquals(setOf(a, b, c), again.trips.value.toSet())
+    }
+
+    @Test
+    fun `deleting unknown ids changes nothing`() = runTest {
+        val r = repo()
+        r.create("A", "CZK")
+        assertEquals(emptyList<Trip>(), r.delete(setOf("nope")))
+        assertNull(r.notice.value)
+        assertEquals(1, r.trips.value.size)
     }
 
     @Test
@@ -121,7 +147,7 @@ class TripRepositoryTest {
         val r = repo(File(folder.root, "missing-dir"))
         val t = r.create("Oslo", "NOK")
         r.clearNotice(RepoNotice.SaveFailed)
-        r.delete(t.id)
+        r.delete(setOf(t.id))
         assertEquals(RepoNotice.SaveFailed, r.notice.value)
     }
 
