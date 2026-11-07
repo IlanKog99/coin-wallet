@@ -151,10 +151,12 @@ fun WalletRoute(vm: WalletViewModel, snackbarHostState: SnackbarHostState, onBac
                 WalletDialog.Pay -> {
                     var text by rememberSaveable { mutableStateOf("") }
                     var stale by rememberSaveable { mutableStateOf(false) }
+                    val paying by vm.paying.collectAsStateWithLifecycle()
                     PaySheet(
                         ui = ui,
                         text = text,
                         stale = stale,
+                        paying = paying,
                         onTextChange = { text = it; stale = false },
                         onPaid = { s -> vm.pay(s) { ok -> if (ok) close() else stale = true } },
                         onDismiss = close,

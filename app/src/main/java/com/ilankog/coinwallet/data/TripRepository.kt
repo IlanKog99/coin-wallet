@@ -75,7 +75,11 @@ class TripRepository(
         ensureLoaded()
         val gone = _trips.value.filter { it.id in ids }
         if (gone.isEmpty()) return@withLock emptyList()
-        if (commit(_trips.value.filterNot { it.id in ids })) _notice.value = RepoNotice.Deleted(gone)
+        if (commit(_trips.value.filterNot { it.id in ids })) {
+            // A delete whose Undo is still pending is folded in, so quick swipes never lose an Undo.
+            val pending = (_notice.value as? RepoNotice.Deleted)?.trips.orEmpty()
+            _notice.value = RepoNotice.Deleted(pending + gone)
+        }
         gone
     }
 

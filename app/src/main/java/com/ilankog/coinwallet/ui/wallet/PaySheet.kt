@@ -65,9 +65,9 @@ fun noteTime(at: Long, zone: ZoneId = ZoneId.systemDefault(), locale: Locale = L
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PaySheet(ui: WalletUiState, text: String, stale: Boolean, onTextChange: (String) -> Unit, onPaid: (PaySuggestion) -> Unit, onDismiss: () -> Unit) {
+fun PaySheet(ui: WalletUiState, text: String, stale: Boolean, paying: Boolean, onTextChange: (String) -> Unit, onPaid: (PaySuggestion) -> Unit, onDismiss: () -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-        PaySheetContent(ui, text, payPreview(ui, text), stale, onTextChange, onPaid, onDismiss)
+        PaySheetContent(ui, text, payPreview(ui, text), stale, onTextChange, onPaid, onDismiss, paying)
     }
 }
 
@@ -80,6 +80,7 @@ fun PaySheetContent(
     onTextChange: (String) -> Unit,
     onPaid: (PaySuggestion) -> Unit,
     onCancel: () -> Unit,
+    paying: Boolean = false,
 ) {
     val info = ui.summary.info
     Column(
@@ -109,7 +110,7 @@ fun PaySheetContent(
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
             TextButton(onClick = onCancel) { Text("Cancel") }
             Spacer(Modifier.width(8.dp))
-            Button(onClick = { (preview as? PayPreview.Ok)?.let { onPaid(it.s) } }, enabled = preview is PayPreview.Ok) { Text("Paid") }
+            Button(onClick = { (preview as? PayPreview.Ok)?.let { onPaid(it.s) } }, enabled = preview is PayPreview.Ok && !paying) { Text("Paid") }
         }
     }
 }

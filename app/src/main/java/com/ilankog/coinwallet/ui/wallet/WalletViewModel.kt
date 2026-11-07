@@ -17,8 +17,10 @@ import com.ilankog.coinwallet.core.TripSummary
 import com.ilankog.coinwallet.data.RateRepository
 import com.ilankog.coinwallet.data.SettingsSource
 import com.ilankog.coinwallet.data.TripRepository
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -74,12 +76,27 @@ class WalletViewModel(
         viewModelScope.launch { trips.delete(setOf(tripId)) }
     }
 
-    /** Applies [s] if the wallet still holds every piece; [done] gets false when it changed meanwhile. */
+    private val _paying = MutableStateFlow(false)
+
+    /** True while a payment is being saved; Paid is disabled so a double tap cannot pay twice. */
+    val paying: StateFlow<Boolean> = _paying.asStateFlow()
+
+    /**
+     * Applies [s] if the wallet still holds every piece; [done] gets false when it changed meanwhile.
+     * Ignored while another payment is saving.
+     */
     fun pay(s: PaySuggestion, done: (Boolean) -> Unit) {
+        if (_paying.value) return
+        _paying.value = true
         viewModelScope.launch {
-            var ok = false
-            trips.update(tripId) { t -> Payment.apply(t, s, newId(), clock())?.also { ok = true } ?: t }
-            done(ok)
+            try {
+                // update runs the transform exactly once, under the repository lock.
+                var ok = false
+                trips.update(tripId) { t -> Payment.apply(t, s, newId(), clock())?.also { ok = true } ?: t }
+                done(ok)
+            } finally {
+                _paying.value = false
+            }
         }
     }
 

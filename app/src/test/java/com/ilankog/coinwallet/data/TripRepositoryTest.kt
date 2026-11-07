@@ -102,6 +102,20 @@ class TripRepositoryTest {
     }
 
     @Test
+    fun `deletes before the notice is cleared merge into one Undo`() = runTest {
+        val r = repo()
+        val a = r.create("A", "CZK")
+        val b = r.create("B", "EUR")
+        r.delete(setOf(a.id))
+        r.delete(setOf(b.id))
+        assertEquals(RepoNotice.Deleted(listOf(a, b)), r.notice.value)
+        r.clearNotice(RepoNotice.Deleted(listOf(a, b)))
+        val c = r.create("C", "JPY")
+        r.delete(setOf(c.id))
+        assertEquals(RepoNotice.Deleted(listOf(c)), r.notice.value)
+    }
+
+    @Test
     fun `deleting unknown ids changes nothing`() = runTest {
         val r = repo()
         r.create("A", "CZK")

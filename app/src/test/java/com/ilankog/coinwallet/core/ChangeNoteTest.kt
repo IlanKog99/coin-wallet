@@ -33,5 +33,7 @@ class ChangeNoteTest {
         assertEquals(emptyList<ChangeNote>(), (TripsCodec.decode(old) as DecodeResult.Ok).trips.single().changeDue)
         val bad = TripsCodec.encode(listOf(t.copy(changeDue = listOf(ChangeNote("x", 0, 1L)))))
         assertTrue(TripsCodec.decode(bad) is DecodeResult.Corrupt)
+        val dup = TripsCodec.encode(listOf(t.copy(changeDue = listOf(ChangeNote("x", 5, 1L), ChangeNote("x", 6, 2L)))))
+        assertTrue(TripsCodec.decode(dup) is DecodeResult.Corrupt)
     }
 }

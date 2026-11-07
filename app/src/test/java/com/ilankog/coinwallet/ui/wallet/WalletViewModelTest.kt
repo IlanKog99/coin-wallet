@@ -158,6 +158,22 @@ class WalletViewModelTest {
     }
 
     @Test
+    fun `a second pay while one is saving is ignored`() = runTest {
+        val vm = env().vm
+        vm.increment(tenKc)
+        vm.increment(tenKc)
+        val s = Payment.suggest(vm.ui().summary.trip, vm.ui().summary.info, 300)!!
+        val results = mutableListOf<Boolean>()
+        vm.paying.value.let { assertFalse(it) }
+        // Simulate a double tap: the second call arrives while the first is still in flight.
+        vm.pay(s) { results += it; vm.pay(s) { r -> results += r } }
+        assertEquals(1, TripRules.count(vm.ui().summary.trip, tenKc))
+        assertEquals(1, vm.ui().summary.trip.changeDue.size)
+        assertEquals(listOf(true), results)
+        assertFalse(vm.paying.value)
+    }
+
+    @Test
     fun `dismissNote removes only that note`() = runTest {
         val vm = env().vm
         vm.increment(tenKc)

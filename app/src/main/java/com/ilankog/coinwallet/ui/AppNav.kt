@@ -23,6 +23,7 @@ import com.ilankog.coinwallet.ui.trips.TripsRoute
 import com.ilankog.coinwallet.ui.trips.TripsViewModel
 import com.ilankog.coinwallet.ui.wallet.WalletRoute
 import com.ilankog.coinwallet.ui.wallet.WalletViewModel
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.serialization.Serializable
 
@@ -42,7 +43,8 @@ fun CoinWalletNavHost(container: AppContainer) {
 
     // App-wide repository notices (corrupt reset, save failure, delete + Undo) survive navigation.
     LaunchedEffect(container) {
-        container.trips.notice.filterNotNull().collect { n ->
+        // collectLatest: a newer notice (e.g. merged deletes) replaces the snackbar on screen at once.
+        container.trips.notice.filterNotNull().collectLatest { n ->
             val deleted = n as? RepoNotice.Deleted
             val result = snackbar.showSnackbar(
                 message = n.text(),
