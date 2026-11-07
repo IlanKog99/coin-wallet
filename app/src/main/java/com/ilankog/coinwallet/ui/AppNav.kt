@@ -6,7 +6,6 @@ import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
-import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavHostController
@@ -44,7 +43,6 @@ fun CoinWalletNavHost(container: AppContainer) {
     // App-wide repository notices (corrupt reset, save failure, delete + Undo) survive navigation.
     LaunchedEffect(container) {
         container.trips.notice.filterNotNull().collect { n ->
-            container.trips.clearNotice(n)
             val deleted = n as? RepoNotice.Deleted
             val result = snackbar.showSnackbar(
                 message = n.text(),
@@ -52,6 +50,8 @@ fun CoinWalletNavHost(container: AppContainer) {
                 withDismissAction = deleted == null,
                 duration = if (deleted != null) SnackbarDuration.Long else SnackbarDuration.Short,
             )
+            // Cleared only after it was shown: if the activity is recreated mid-snackbar, it shows again (Undo kept).
+            container.trips.clearNotice(n)
             if (result == SnackbarResult.ActionPerformed && deleted != null) container.trips.restore(deleted.trip)
         }
     }
@@ -69,16 +69,19 @@ fun CoinWalletNavHost(container: AppContainer) {
         composable<WalletDest> { entry ->
             val tripId = entry.toRoute<WalletDest>().tripId
             val vm = viewModel { WalletViewModel(tripId, container.trips, container.rates, container.settings) }
-            WalletRoute(vm = vm, snackbarHostState = snackbar, onBack = { popIfResumed(nav, entry) })
+            WalletRoute(vm = vm, snackbarHostState = snackbar, onBack = { popIfTop(nav, entry) })
         }
         composable<SettingsDest> { entry ->
             val vm = viewModel { SettingsViewModel(container.rates, container.settings, BuildConfig.VERSION_NAME) }
-            SettingsRoute(vm = vm, onBack = { popIfResumed(nav, entry) })
+            SettingsRoute(vm = vm, onBack = { popIfTop(nav, entry) })
         }
     }
 }
 
-/** Pops only while [entry] is the resumed top screen, so a double back tap or a late callback can't pop the trips list. */
-private fun popIfResumed(nav: NavHostController, entry: NavBackStackEntry) {
-    if (entry.lifecycle.currentState == Lifecycle.State.RESUMED) nav.popBackStack()
+/**
+ * Pops only while [entry] is the top of the back stack, so a double back tap can't pop the trips list.
+ * Unlike a RESUMED check, this also works during the enter transition (e.g. a trip that is already gone).
+ */
+private fun popIfTop(nav: NavHostController, entry: NavBackStackEntry) {
+    if (nav.currentBackStackEntry?.id == entry.id) nav.popBackStack()
 }

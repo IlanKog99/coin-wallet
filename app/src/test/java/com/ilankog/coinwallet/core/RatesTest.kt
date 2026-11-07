@@ -83,4 +83,18 @@ class RatesTest {
         assertTrue(Staleness.isStale(snapshot.copy(fetchedAt = now - Staleness.MAX_AGE_MS - 1), now))
         assertTrue(Staleness.isStale(snapshot.copy(fetchedAt = now + 1), now))
     }
+
+    @Test
+    fun `drops implausible rates so conversions cannot overflow`() {
+        val body = """{"base":"EUR","date":"2026-11-06","rates":{"CZK":24.35,"JPY":1e-15,"USD":1e12,"ILS":0}}"""
+        val r = RatesParser.parse(body) as ParseResult.Ok
+        assertEquals(setOf("EUR", "CZK"), r.rates.keys)
+    }
+
+    @Test
+    fun `convert returns null instead of throwing on overflow`() {
+        val idr = Currencies.orFallback("IDR")
+        val eur = Currencies.orFallback("EUR")
+        assertNull(Conversion.convert(Long.MAX_VALUE / 2, eur, idr, BigDecimal("1e15")))
+    }
 }

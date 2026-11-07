@@ -31,7 +31,7 @@ class RateStatusTest {
     @Test
     fun `messages`() {
         assertNull(RefreshResult.Success.toMessage())
-        assertEquals("You're offline. Using saved rates.", RefreshResult.Offline.describe())
+        assertEquals("You're offline. Rates not updated.", RefreshResult.Offline.describe())
         assertEquals("Rate server error (503)", RefreshResult.HttpError(503).describe())
         assertEquals("Rate data was invalid", RefreshResult.BadData.describe())
         assertEquals("Rates updated", RefreshResult.Success.describe())

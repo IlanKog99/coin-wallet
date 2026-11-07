@@ -27,6 +27,15 @@ object RatesParser {
 
     private val json = Json { ignoreUnknownKeys = true }
 
+    // Real EUR rates sit between ~0.3 (KWD-like) and ~20,000 (IDR); anything far outside is bad data
+    // and could overflow Long totals in Conversion.convert.
+    private const val MIN_RATE = 1e-6
+    private const val MAX_RATE = 1e9
+
+    /** Keeps known currencies with finite rates in [MIN_RATE, MAX_RATE]. Also applied to the cached snapshot. */
+    fun plausible(rates: Map<String, Double>): Map<String, Double> =
+        rates.filter { (code, r) -> Currencies.get(code) != null && r.isFinite() && r in MIN_RATE..MAX_RATE }
+
     fun parse(body: String): ParseResult {
         val parsed = try {
             json.decodeFromString(Body.serializer(), body)
@@ -34,8 +43,7 @@ object RatesParser {
             return ParseResult.Error("malformed body: ${e.message}")
         }
         if (parsed.base != "EUR") return ParseResult.Error("unexpected base ${parsed.base}")
-        val rates = parsed.rates.filter { (code, r) -> Currencies.get(code) != null && r.isFinite() && r > 0.0 } +
-            ("EUR" to 1.0)
+        val rates = plausible(parsed.rates) + ("EUR" to 1.0)
         if (rates.size < 2) return ParseResult.Error("no usable rates")
         return ParseResult.Ok(parsed.date, rates)
     }
@@ -58,12 +66,16 @@ object Conversion {
         return crossRate(snapshot, from, home)?.let { ResolvedRate(it, RateSource.ECB) }
     }
 
-    fun convert(minor: Long, from: CurrencyInfo, to: CurrencyInfo, rate: BigDecimal): Long =
+    /** Null when the result does not fit in a Long (the trip then shows "No rate" instead of crashing). */
+    fun convert(minor: Long, from: CurrencyInfo, to: CurrencyInfo, rate: BigDecimal): Long? = try {
         BigDecimal.valueOf(minor, from.decimals)
             .multiply(rate)
             .movePointRight(to.decimals)
             .setScale(0, RoundingMode.HALF_EVEN)
             .longValueExact()
+    } catch (e: ArithmeticException) {
+        null
+    }
 }
 
 object Staleness {

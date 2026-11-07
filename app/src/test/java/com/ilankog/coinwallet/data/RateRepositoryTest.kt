@@ -80,6 +80,16 @@ class RateRepositoryTest {
     }
 
     @Test
+    fun `cached implausible rates are dropped on load`() = runTest {
+        File(folder.root, RateRepository.FILE).writeText(
+            """{"fetchedAt":1,"date":"2026-11-06","rates":{"EUR":1.0,"CZK":24.35,"JPY":1e-15}}""",
+        )
+        val r = repo(FakeFetcher { HttpResponse(200, body) })
+        r.load()
+        assertEquals(setOf("EUR", "CZK"), r.snapshot.value?.rates?.keys)
+    }
+
+    @Test
     fun `corrupt cache is deleted on load`() = runTest {
         val cache = File(folder.root, RateRepository.FILE)
         cache.writeText("{oops")

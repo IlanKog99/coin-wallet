@@ -17,7 +17,7 @@ fun RefreshResult.toMessage(): UiMessage? = when (this) {
 }
 
 fun UiMessage.text(): String = when (this) {
-    UiMessage.Offline -> "You're offline. Using saved rates."
+    UiMessage.Offline -> "You're offline. Rates not updated."
     is UiMessage.ServerError -> "Rate server error ($code)"
     UiMessage.BadData -> "Rate data was invalid"
 }

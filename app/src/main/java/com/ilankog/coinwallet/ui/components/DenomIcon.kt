@@ -14,6 +14,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ilankog.coinwallet.core.CurrencyInfo
@@ -30,6 +31,8 @@ import com.ilankog.coinwallet.ui.theme.Silver
 @Composable
 fun DenomIcon(denom: Denomination, info: CurrencyInfo, modifier: Modifier = Modifier) {
     val tier = DenomTier.of(denom, info)
+    // Face text is decorative (the row label says the value) and must fit the fixed art, so ignore font scale.
+    val fontScale = LocalDensity.current.fontScale
     val text = DenomTier.faceText(denom, info)
     if (denom.kind == DenomKind.COIN) {
         val metal = listOf(Copper, Brass, Silver)[tier]
@@ -45,7 +48,7 @@ fun DenomIcon(denom: Denomination, info: CurrencyInfo, modifier: Modifier = Modi
                 drawCircle(metal.rim, radius = size.minDimension / 2 - 1.5.dp.toPx(), style = Stroke(width = 3.dp.toPx()))
                 drawCircle(metal.rim.copy(alpha = 0.45f), radius = size.minDimension / 2 - 6.dp.toPx(), style = Stroke(width = 1.dp.toPx()))
             }
-            Text(text, color = metal.ink, fontWeight = FontWeight.Bold, fontSize = faceSize(text, 15).sp, maxLines = 1)
+            Text(text, color = metal.ink, fontWeight = FontWeight.Bold, fontSize = (faceSize(text, 15) / fontScale).sp, maxLines = 1)
         }
     } else {
         val paper = NotePaper[tier]
@@ -62,7 +65,7 @@ fun DenomIcon(denom: Denomination, info: CurrencyInfo, modifier: Modifier = Modi
                 )
                 drawCircle(Color.White.copy(alpha = 0.35f), radius = size.height * 0.3f, center = Offset(size.width * 0.8f, size.height / 2))
             }
-            Text(text, color = NoteInk, fontWeight = FontWeight.Bold, fontSize = faceSize(text, 14).sp, maxLines = 1)
+            Text(text, color = NoteInk, fontWeight = FontWeight.Bold, fontSize = (faceSize(text, 14) / fontScale).sp, maxLines = 1)
         }
     }
 }

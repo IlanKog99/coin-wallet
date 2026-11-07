@@ -14,7 +14,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
 private val LightColors = lightColorScheme(
-    primary = Color(0xFFB4632F),
+    primary = Color(0xFFA85A28), // 5.0:1 with white (AA)
     onPrimary = Color(0xFFFFFFFF),
     primaryContainer = Color(0xFFF6DCC8),
     onPrimaryContainer = Color(0xFF3D1E0A),

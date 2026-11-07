@@ -1,6 +1,7 @@
 package com.ilankog.coinwallet.ui.components
 
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -86,7 +87,7 @@ fun CurrencyPickerContent(
                     trailingContent = {
                         if (c.code == selected) Icon(Icons.Default.Check, contentDescription = "Selected", tint = MaterialTheme.colorScheme.primary)
                     },
-                    modifier = Modifier.clickable { onPick(c) },
+                    modifier = Modifier.clickable(role = Role.Button) { onPick(c) },
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                 )
             }

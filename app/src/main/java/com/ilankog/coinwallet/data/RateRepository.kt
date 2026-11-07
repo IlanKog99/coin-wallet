@@ -53,13 +53,12 @@ class RateRepository(
     private val _lastResult = MutableStateFlow<RefreshResult?>(null)
     val lastResult: StateFlow<RefreshResult?> = _lastResult.asStateFlow()
 
-    suspend fun load() {
-        val first = lock.withLock {
-            if (loaded) false else { loaded = true; true }
-        }
-        if (!first) return
+    /** Reads the cache once. `loaded` is set only after the read, so a cancelled first load is retried. */
+    suspend fun load(): Unit = lock.withLock {
+        if (loaded) return@withLock
         val cached = withContext(io) { readCache() }
         if (_snapshot.value == null) _snapshot.value = cached
+        loaded = true
     }
 
     suspend fun refresh(): RefreshResult {
@@ -118,7 +117,10 @@ class RateRepository(
         }
         if (text == null) return null
         return try {
-            json.decodeFromString(RateSnapshot.serializer(), text)
+            val snap = json.decodeFromString(RateSnapshot.serializer(), text)
+            val rates = RatesParser.plausible(snap.rates)
+            if (rates.size != snap.rates.size) LOG.log(Level.WARNING, "dropped ${snap.rates.size - rates.size} implausible cached rates")
+            if (rates.size < 2) null else snap.copy(rates = rates)
         } catch (e: IllegalArgumentException) {
             LOG.log(Level.WARNING, "rates cache corrupt, deleting", e)
             if (!file.delete()) LOG.log(Level.WARNING, "could not delete corrupt rates cache")
