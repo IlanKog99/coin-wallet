@@ -29,6 +29,7 @@ object TripsCodec {
         val trips = body.trips.map { t ->
             val info = Currencies.get(t.currency) ?: return DecodeResult.Corrupt("unknown currency ${t.currency}")
             if (t.counts.values.any { it !in 0..TripRules.MAX_COUNT }) return DecodeResult.Corrupt("count out of range in ${t.id}")
+            if (t.changeDue.any { it.amountMinor <= 0 }) return DecodeResult.Corrupt("bad change note in ${t.id}")
             val valid = info.denominations.map { it.key }.toSet()
             val kept = t.counts.filterKeys { it in valid }
             dropped += t.counts.size - kept.size

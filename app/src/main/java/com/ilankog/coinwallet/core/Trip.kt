@@ -9,7 +9,12 @@ data class Trip(
     val currency: String,
     val counts: Map<String, Int> = emptyMap(),
     val createdAt: Long,
+    /** Change the user received but has not counted in yet (spec v1.1 §4). Only Done removes one. */
+    val changeDue: List<ChangeNote> = emptyList(),
 )
+
+@Serializable
+data class ChangeNote(val id: String, val amountMinor: Long, val at: Long)
 
 object TripRules {
     const val MAX_COUNT = 9999
@@ -32,6 +37,14 @@ object TripRules {
     fun reset(trip: Trip): Trip = trip.copy(counts = emptyMap())
 
     fun hasCounts(trip: Trip): Boolean = trip.counts.values.any { it > 0 }
+
+    /** Currency may change only when nothing is counted and no change reminder (in that currency) is pending. */
+    fun canChangeCurrency(trip: Trip): Boolean = !hasCounts(trip) && trip.changeDue.isEmpty()
+
+    fun dismissNote(trip: Trip, id: String): Trip {
+        val left = trip.changeDue.filterNot { it.id == id }
+        return if (left.size == trip.changeDue.size) trip else trip.copy(changeDue = left)
+    }
 
     fun totalMinor(trip: Trip, info: CurrencyInfo): Long =
         info.denominations.sumOf { it.value * count(trip, it) }

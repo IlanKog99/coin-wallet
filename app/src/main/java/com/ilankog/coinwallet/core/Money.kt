@@ -31,6 +31,20 @@ object Money {
         return v.takeIf { it > BigDecimal.ZERO && it <= MAX_RATE }
     }
 
+    /** A price in [c]: positive, "." or "," separator, at most [CurrencyInfo.decimals] fraction digits. */
+    fun parseAmount(text: String, c: CurrencyInfo): Long? {
+        val t = text.trim().replace(',', '.')
+        if (t.isEmpty() || t.count { it == '.' } > 1 || !t.all { it in '0'..'9' || it == '.' }) return null
+        val v = t.toBigDecimalOrNull() ?: return null
+        if (v.stripTrailingZeros().scale() > c.decimals) return null
+        val minor = try {
+            v.movePointRight(c.decimals).longValueExact()
+        } catch (e: ArithmeticException) {
+            return null // too large for a Long
+        }
+        return minor.takeIf { it > 0 }
+    }
+
     private fun number(v: BigDecimal, digits: Int, locale: Locale): String =
         NumberFormat.getNumberInstance(locale).apply {
             minimumFractionDigits = digits
