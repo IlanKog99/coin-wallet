@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 11 (API 30-31) backup: only trips and settings; rates are re-downloadable. -->
+<full-backup-content>
+    <include domain="file" path="trips.json" />
+    <include domain="sharedpref" path="settings.xml" />
+</full-backup-content>

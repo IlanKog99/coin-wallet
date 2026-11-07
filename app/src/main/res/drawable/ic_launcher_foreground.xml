@@ -1,0 +1,16 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- bottom coin -->
+    <path android:fillColor="#7A3E1A" android:pathData="M34,66 L74,66 L74,74 A20,6 0 0,1 34,74 Z" />
+    <path android:fillColor="#E9A97C" android:pathData="M34,66 A20,6 0 1,0 74,66 A20,6 0 1,0 34,66 Z" />
+    <!-- middle coin -->
+    <path android:fillColor="#9C7A26" android:pathData="M34,56 L74,56 L74,64 A20,6 0 0,1 34,64 Z" />
+    <path android:fillColor="#F3DC95" android:pathData="M34,56 A20,6 0 1,0 74,56 A20,6 0 1,0 34,56 Z" />
+    <!-- top coin -->
+    <path android:fillColor="#8D9198" android:pathData="M34,46 L74,46 L74,54 A20,6 0 0,1 34,54 Z" />
+    <path android:fillColor="#F1F2F4" android:pathData="M34,46 A20,6 0 1,0 74,46 A20,6 0 1,0 34,46 Z" />
+    <path android:strokeColor="#8D9198" android:strokeWidth="1.5" android:pathData="M40,46 A14,3.6 0 1,0 68,46 A14,3.6 0 1,0 40,46 Z" />
+</vector>

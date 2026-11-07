@@ -169,7 +169,7 @@ follows system dark mode.
 - Sections "Coins" and "Notes", each row: coin/note icon, formatted value, `−` button,
   count (tappable), `+` button, row subtotal. Buttons ≥48dp. Haptic tick on change.
 - Tap count → dialog with numeric field; OK validates per §4; Cancel closes unchanged.
-- Set manual rate dialog: "1 {A} = [ ] {H}"; decimal input, >0, ≤ 1e9, `.` or `,` separator;
+- Set manual rate dialog: "1 {A} = [ ] {H}"; decimal input, >0, ≤ 1,000,000 (keeps IDR totals inside Long), `.` or `,` separator;
   invalid → error text, OK disabled.
 - Reset counts → confirm dialog → all counts 0. Delete trip → confirm dialog →
   delete, navigate back, snackbar "Trip deleted" with Undo (restores the same trip, same id).
