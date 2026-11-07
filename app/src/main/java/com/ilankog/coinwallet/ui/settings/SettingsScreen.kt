@@ -1,5 +1,6 @@
 package com.ilankog.coinwallet.ui.settings
 
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -27,12 +28,14 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.ilankog.coinwallet.core.RelativeTime
 import com.ilankog.coinwallet.data.RefreshResult
@@ -41,7 +44,14 @@ import com.ilankog.coinwallet.ui.components.CodeBadge
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(state: SettingsUiState, onBack: () -> Unit, onPickHome: () -> Unit, onRefresh: () -> Unit) {
+fun SettingsScreen(
+    state: SettingsUiState,
+    onBack: () -> Unit,
+    onPickHome: () -> Unit,
+    onRefresh: () -> Unit,
+    onHopEnabled: (Boolean) -> Unit = {},
+    onPickHop: () -> Unit = {},
+) {
     Scaffold(
         topBar = {
             TopAppBar(
@@ -77,6 +87,32 @@ fun SettingsScreen(state: SettingsUiState, onBack: () -> Unit, onPickHome: () ->
                         }
                     }
                 }
+            }
+            Section("Hop currency") {
+                Row(
+                    Modifier.fillMaxWidth().toggleable(value = state.hopEnabled, role = Role.Switch, onValueChange = onHopEnabled),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("Show hop currency on trip screens", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                    Spacer(Modifier.width(12.dp))
+                    Switch(checked = state.hopEnabled, onCheckedChange = null)
+                }
+                Card(
+                    onClick = onPickHop,
+                    enabled = state.hopEnabled,
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+                ) {
+                    Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        CodeBadge(state.hop.code)
+                        Spacer(Modifier.width(12.dp))
+                        Text(state.hop.name, style = MaterialTheme.typography.titleMedium)
+                    }
+                }
+                Text(
+                    "The currency you exchange from, e.g. EUR → CZK. Shown on trip screens only.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
             Section("Exchange rates") {
                 Text("European Central Bank via Frankfurter", style = MaterialTheme.typography.bodyMedium)

@@ -137,7 +137,7 @@ private fun Suggestion(ui: WalletUiState, p: PayPreview.Ok) {
         }
         val equivalents = listOfNotNull(
             p.homeMinor?.let { "≈ " + Money.format(it, ui.home) },
-            ui.hop?.let { h -> p.hopMinor?.let { "≈ " + Money.format(it, h.info) + " (hop)" } },
+            ui.hop?.let { h -> p.hopMinor?.let { "≈ " + Money.format(it, h.info) + " (hop)" } ?: "Hop: no rate" },
         )
         if (equivalents.isNotEmpty()) {
             Text(

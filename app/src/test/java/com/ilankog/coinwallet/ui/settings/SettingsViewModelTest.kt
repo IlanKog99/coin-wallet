@@ -15,6 +15,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -55,5 +56,21 @@ class SettingsViewModelTest {
         vm.refresh()
         assertEquals(RefreshResult.HttpError(500), vm.state.value.lastResult)
         assertNotNull(vm.state.value.snapshot)
+    }
+
+    @Test
+    fun `hop toggles and setHop accepts only supported codes`() = runTest {
+        val vm = vm(FakeFetcher { HttpResponse(200, "") })
+        assertFalse(vm.state.value.hopEnabled)
+        assertEquals("EUR", vm.state.value.hop.code)
+        vm.setHopEnabled(true)
+        assertTrue(vm.state.value.hopEnabled)
+        vm.setHop("XAU")
+        assertEquals("EUR", vm.state.value.hop.code)
+        vm.setHop("USD")
+        assertEquals("USD", vm.state.value.hop.code)
+        vm.setHopEnabled(false)
+        assertFalse(vm.state.value.hopEnabled)
+        assertEquals("USD", vm.state.value.hop.code)
     }
 }

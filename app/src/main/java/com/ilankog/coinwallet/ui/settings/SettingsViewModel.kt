@@ -22,6 +22,8 @@ data class SettingsUiState(
     val lastResult: RefreshResult?,
     val now: Long,
     val version: String,
+    val hopEnabled: Boolean = false,
+    val hop: CurrencyInfo = Currencies.orFallback(Currencies.FALLBACK),
 )
 
 class SettingsViewModel(
@@ -48,10 +50,22 @@ class SettingsViewModel(
         if (Currencies.get(code) != null) settings.setHomeCurrency(code)
     }
 
+    fun setHopEnabled(enabled: Boolean) {
+        settings.setHopEnabled(enabled)
+    }
+
+    fun setHop(code: String) {
+        if (Currencies.get(code) != null) settings.setHopCurrency(code)
+    }
+
     fun refresh() {
         viewModelScope.launch { rates.refresh() }
     }
 
     private fun build(snap: RateSnapshot?, busy: Boolean, last: RefreshResult?, s: Settings) =
-        SettingsUiState(Currencies.orFallback(s.homeCurrency), snap, busy, last, clock(), version)
+        SettingsUiState(
+            Currencies.orFallback(s.homeCurrency), snap, busy, last, clock(), version,
+            hopEnabled = s.hopEnabled,
+            hop = Currencies.orFallback(s.hopCurrency),
+        )
 }
