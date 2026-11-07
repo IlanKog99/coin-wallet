@@ -2,7 +2,11 @@ package com.ilankog.coinwallet.ui.wallet
 
 import com.ilankog.coinwallet.Fixtures
 import com.ilankog.coinwallet.MainDispatcherRule
+import com.ilankog.coinwallet.core.ChangeNote
+import com.ilankog.coinwallet.core.Conversion
 import com.ilankog.coinwallet.core.DenomKind
+import com.ilankog.coinwallet.core.PaySuggestion
+import com.ilankog.coinwallet.core.Payment
 import com.ilankog.coinwallet.core.Denomination
 import com.ilankog.coinwallet.core.RateSource
 import com.ilankog.coinwallet.core.TripRules
@@ -19,6 +23,7 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -45,7 +50,7 @@ class WalletViewModelTest {
         val rates = RateRepository(folder.root, FakeFetcher { HttpResponse(200, body) }, CoroutineScope(io), io, clock = { 1L })
         rates.refresh()
         trips.create("Prague", "CZK")
-        return Env(WalletViewModel(id, trips, rates, settings), trips)
+        return Env(WalletViewModel(id, trips, rates, settings, newId = { "n1" }, clock = { 42L }), trips)
     }
 
     private fun WalletViewModel.ui() = (state.value as WalletState.Ready).ui
@@ -123,5 +128,91 @@ class WalletViewModelTest {
         vm.editTrip("Brno", "XAU")
         assertEquals("Brno", vm.ui().summary.trip.name)
         assertEquals("EUR", vm.ui().summary.trip.currency)
+    }
+
+    private fun TestScope.paid(vm: WalletViewModel, s: PaySuggestion): Boolean? {
+        var result: Boolean? = null
+        vm.pay(s) { result = it }
+        return result
+    }
+
+    @Test
+    fun `pay removes pieces and adds a change note with clock and id`() = runTest {
+        val vm = env().vm
+        vm.increment(tenKc)
+        val s = Payment.suggest(vm.ui().summary.trip, vm.ui().summary.info, 300)!!
+        assertEquals(true, paid(vm, s))
+        assertEquals(0, TripRules.count(vm.ui().summary.trip, tenKc))
+        assertEquals(listOf(ChangeNote("n1", 700, 42L)), vm.ui().summary.trip.changeDue)
+    }
+
+    @Test
+    fun `pay with a stale suggestion changes nothing`() = runTest {
+        val vm = env().vm
+        vm.increment(tenKc)
+        val s = Payment.suggest(vm.ui().summary.trip, vm.ui().summary.info, 300)!!
+        vm.decrement(tenKc)
+        val before = vm.ui().summary.trip
+        assertEquals(false, paid(vm, s))
+        assertEquals(before, vm.ui().summary.trip)
+    }
+
+    @Test
+    fun `dismissNote removes only that note`() = runTest {
+        val vm = env().vm
+        vm.increment(tenKc)
+        vm.increment(tenKc)
+        val info = vm.ui().summary.info
+        paid(vm, Payment.suggest(vm.ui().summary.trip, info, 300)!!)
+        vm.dismissNote("missing")
+        assertEquals(1, vm.ui().summary.trip.changeDue.size)
+        vm.dismissNote("n1")
+        assertTrue(vm.ui().summary.trip.changeDue.isEmpty())
+    }
+
+    @Test
+    fun `hop converts with ECB and hides when off or same as trip`() = runTest {
+        val settings = FakeSettings("ILS")
+        val vm = env(settings).vm
+        vm.increment(tenKc)
+        assertNull(vm.ui().hop)
+        settings.setHopEnabled(true)
+        val hop = vm.ui().hop!!
+        assertEquals("EUR", hop.info.code)
+        assertEquals(41L, hop.minor) // 10 CZK / 24.35
+        settings.setHopCurrency("CZK")
+        assertNull(vm.ui().hop)
+    }
+
+    @Test
+    fun `currency stays locked while change notes exist`() = runTest {
+        val vm = env().vm
+        vm.increment(tenKc)
+        paid(vm, Payment.suggest(vm.ui().summary.trip, vm.ui().summary.info, 300)!!)
+        vm.editTrip("Prague", "EUR")
+        assertEquals("CZK", vm.ui().summary.trip.currency)
+        vm.dismissNote("n1")
+        vm.editTrip("Prague", "EUR")
+        assertEquals("EUR", vm.ui().summary.trip.currency)
+    }
+
+    @Test
+    fun `payPreview covers empty invalid insufficient and ok`() = runTest {
+        val vm = env().vm
+        vm.increment(tenKc)
+        val ui = vm.ui()
+        assertEquals(PayPreview.Empty, payPreview(ui, " "))
+        assertEquals(PayPreview.Invalid, payPreview(ui, "abc"))
+        assertEquals(PayPreview.Invalid, payPreview(ui, "0"))
+        assertEquals(PayPreview.Insufficient(1000), payPreview(ui, "50"))
+        val ok = payPreview(ui, "3") as PayPreview.Ok
+        assertEquals(700L, ok.s.changeMinor)
+        assertEquals(Conversion.convert(300, ui.summary.info, ui.home, ui.summary.rate!!.rate), ok.homeMinor)
+        assertNull(ok.hopMinor)
+    }
+
+    @Test
+    fun `noteTime formats in the given zone`() {
+        assertEquals("Jan 1, 1970, 12:00\u202FAM", noteTime(0, java.time.ZoneId.of("UTC"), java.util.Locale.US))
     }
 }

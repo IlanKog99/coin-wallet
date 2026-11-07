@@ -128,7 +128,7 @@ fun TripSheetContent(
                 CurrencyField(currency, currencyLocked, onPickCurrency)
                 if (currencyLocked) {
                     Text(
-                        "Reset counts to change currency",
+                        "Reset counts and clear change reminders to change currency",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

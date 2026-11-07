@@ -28,6 +28,7 @@ private sealed interface WalletDialog {
     data object Reset : WalletDialog
     data object Delete : WalletDialog
     data object Edit : WalletDialog
+    data object Pay : WalletDialog
 }
 
 // Saved as a plain string so an open dialog survives rotation and process death.
@@ -37,6 +38,7 @@ private fun WalletDialog.save(): String = when (this) {
     WalletDialog.Reset -> "reset"
     WalletDialog.Delete -> "delete"
     WalletDialog.Edit -> "edit"
+    WalletDialog.Pay -> "pay"
 }
 
 private fun restoreDialog(saved: String?, info: CurrencyInfo): WalletDialog? = when {
@@ -46,6 +48,7 @@ private fun restoreDialog(saved: String?, info: CurrencyInfo): WalletDialog? = w
     saved == "reset" -> WalletDialog.Reset
     saved == "delete" -> WalletDialog.Delete
     saved == "edit" -> WalletDialog.Edit
+    saved == "pay" -> WalletDialog.Pay
     else -> null
 }
 
@@ -79,6 +82,8 @@ fun WalletRoute(vm: WalletViewModel, snackbarHostState: SnackbarHostState, onBac
                     onClearRate = vm::clearManualRate,
                     onReset = { savedDialog = WalletDialog.Reset.save() },
                     onDelete = { savedDialog = WalletDialog.Delete.save() },
+                    onPay = { savedDialog = WalletDialog.Pay.save() },
+                    onDismissNote = vm::dismissNote,
                 ),
             )
             val close = { savedDialog = null }
@@ -139,10 +144,22 @@ fun WalletRoute(vm: WalletViewModel, snackbarHostState: SnackbarHostState, onBac
                     title = "Edit trip",
                     initialName = ui.summary.trip.name,
                     initialCurrency = ui.summary.trip.currency,
-                    currencyLocked = TripRules.hasCounts(ui.summary.trip),
+                    currencyLocked = !TripRules.canChangeCurrency(ui.summary.trip),
                     onSave = { name, code -> vm.editTrip(name, code); close() },
                     onDismiss = close,
                 )
+                WalletDialog.Pay -> {
+                    var text by rememberSaveable { mutableStateOf("") }
+                    var stale by rememberSaveable { mutableStateOf(false) }
+                    PaySheet(
+                        ui = ui,
+                        text = text,
+                        stale = stale,
+                        onTextChange = { text = it; stale = false },
+                        onPaid = { s -> vm.pay(s) { ok -> if (ok) close() else stale = true } },
+                        onDismiss = close,
+                    )
+                }
             }
         }
     }

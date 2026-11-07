@@ -2,9 +2,12 @@ package com.ilankog.coinwallet.ui.wallet
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.ilankog.coinwallet.core.Conversion
 import com.ilankog.coinwallet.core.Currencies
 import com.ilankog.coinwallet.core.CurrencyInfo
 import com.ilankog.coinwallet.core.Denomination
+import com.ilankog.coinwallet.core.PaySuggestion
+import com.ilankog.coinwallet.core.Payment
 import com.ilankog.coinwallet.core.RateSnapshot
 import com.ilankog.coinwallet.core.Settings
 import com.ilankog.coinwallet.core.Totals
@@ -20,13 +23,18 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.math.BigDecimal
+import java.util.UUID
 
 data class WalletUiState(
     val summary: TripSummary,
     val home: CurrencyInfo,
     val rateDate: String?,
     val hasManualRate: Boolean,
+    val hop: HopValue? = null,
 )
+
+/** The trip total in the hop currency (ECB only); minor is null when there is no rate. */
+data class HopValue(val info: CurrencyInfo, val minor: Long?, val rate: BigDecimal?)
 
 sealed interface WalletState {
     data object Loading : WalletState
@@ -39,6 +47,8 @@ class WalletViewModel(
     private val trips: TripRepository,
     private val rates: RateRepository,
     private val settings: SettingsSource,
+    private val newId: () -> String = { UUID.randomUUID().toString() },
+    private val clock: () -> Long = System::currentTimeMillis,
 ) : ViewModel() {
 
     val state: StateFlow<WalletState> =
@@ -64,6 +74,17 @@ class WalletViewModel(
         viewModelScope.launch { trips.delete(setOf(tripId)) }
     }
 
+    /** Applies [s] if the wallet still holds every piece; [done] gets false when it changed meanwhile. */
+    fun pay(s: PaySuggestion, done: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            var ok = false
+            trips.update(tripId) { t -> Payment.apply(t, s, newId(), clock())?.also { ok = true } ?: t }
+            done(ok)
+        }
+    }
+
+    fun dismissNote(id: String): Unit = edit { TripRules.dismissNote(it, id) }
+
     fun setManualRate(rate: BigDecimal) {
         val ui = ready() ?: return
         settings.setManualRate(ui.summary.info.code, rate, ui.home.code)
@@ -74,12 +95,12 @@ class WalletViewModel(
         settings.clearManualRate(ui.summary.info.code)
     }
 
-    /** Renames; changes currency only when no pieces are counted (spec 7.2). */
+    /** Renames; changes currency only when no pieces are counted and no change reminders exist. */
     fun editTrip(name: String, currency: String) {
         val clean = TripRules.cleanName(name) ?: return
         if (Currencies.get(currency) == null) return
         edit { t ->
-            if (currency != t.currency && TripRules.hasCounts(t)) t.copy(name = clean) else t.copy(name = clean, currency = currency)
+            if (currency != t.currency && !TripRules.canChangeCurrency(t)) t.copy(name = clean) else t.copy(name = clean, currency = currency)
         }
     }
 
@@ -95,12 +116,18 @@ class WalletViewModel(
         val info = Currencies.get(trip.currency) ?: return WalletState.NotFound
         val home = Currencies.orFallback(s.homeCurrency)
         val manual = s.manualRates[trip.currency]
+        val summary = Totals.summarize(trip, info, home, manual, snap)
+        val hop = s.hop?.takeIf { it != trip.currency }?.let(Currencies::get)?.let { h ->
+            val rate = Conversion.crossRate(snap, trip.currency, h.code)
+            HopValue(h, rate?.let { Conversion.convert(summary.totalMinor, info, h, it) }, rate)
+        }
         return WalletState.Ready(
             WalletUiState(
-                summary = Totals.summarize(trip, info, home, manual, snap),
+                summary = summary,
                 home = home,
                 rateDate = snap?.date,
                 hasManualRate = manual != null && manual.home == home.code,
+                hop = hop,
             ),
         )
     }
