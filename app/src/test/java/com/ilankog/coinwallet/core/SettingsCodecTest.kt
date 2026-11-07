@@ -41,4 +41,16 @@ class SettingsCodecTest {
         assertEquals("manual_rate_USD", SettingsCodec.rateKey("USD"))
         assertEquals("manual_home_USD", SettingsCodec.homeKey("USD"))
     }
+
+    @Test
+    fun `hop currency settings`() {
+        val off = SettingsCodec.decode(emptyMap<String, Any>(), "ILS")
+        assertEquals(false, off.hopEnabled)
+        assertEquals("EUR", off.hopCurrency)
+        assertEquals(null, off.hop)
+        val on = SettingsCodec.decode(mapOf(SettingsCodec.KEY_HOP_ENABLED to true, SettingsCodec.KEY_HOP to "CZK"), "ILS")
+        assertEquals("CZK", on.hop)
+        val bad = SettingsCodec.decode(mapOf(SettingsCodec.KEY_HOP_ENABLED to true, SettingsCodec.KEY_HOP to "XAU"), "ILS")
+        assertEquals("EUR", bad.hop)
+    }
 }

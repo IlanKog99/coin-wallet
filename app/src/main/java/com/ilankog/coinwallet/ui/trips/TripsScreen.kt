@@ -1,5 +1,24 @@
 package com.ilankog.coinwallet.ui.trips
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.SelectAll
+import androidx.compose.material3.Surface
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
+import androidx.compose.material3.rememberSwipeToDismissBoxState
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -54,23 +73,49 @@ fun TripsScreen(
     onNewTrip: () -> Unit,
     onOpenTrip: (String) -> Unit,
     onOpenSettings: () -> Unit,
+    selected: Set<String> = emptySet(),
+    onLongPressTrip: (String) -> Unit = {},
+    onToggleTrip: (String) -> Unit = {},
+    onSelectAll: () -> Unit = {},
+    onClearSelection: () -> Unit = {},
+    onDeleteSelected: () -> Unit = {},
+    onSwipeDelete: (String) -> Unit = {},
 ) {
+    val selecting = selected.isNotEmpty()
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Coin Wallet") },
-                actions = {
-                    IconButton(onClick = onOpenSettings) { Icon(Icons.Default.Settings, contentDescription = "Settings") }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
-            )
+            if (selecting) {
+                TopAppBar(
+                    title = { Text("${selected.size} selected") },
+                    navigationIcon = {
+                        IconButton(onClick = onClearSelection) { Icon(Icons.Default.Close, contentDescription = "Cancel selection") }
+                    },
+                    actions = {
+                        IconButton(onClick = onSelectAll) { Icon(Icons.Default.SelectAll, contentDescription = "Select all") }
+                        IconButton(onClick = onDeleteSelected) {
+                            Icon(Icons.Default.Delete, contentDescription = "Delete selected", tint = MaterialTheme.colorScheme.error)
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+                )
+            } else {
+                TopAppBar(
+                    title = { Text("Coin Wallet") },
+                    actions = {
+                        IconButton(onClick = onOpenSettings) { Icon(Icons.Default.Settings, contentDescription = "Settings") }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
+                )
+            }
         },
         floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = onNewTrip,
-                icon = { Icon(Icons.Default.Add, contentDescription = null) },
-                text = { Text("New trip") },
-            )
+            if (!selecting) {
+                ExtendedFloatingActionButton(
+                    onClick = onNewTrip,
+                    icon = { Icon(Icons.Default.Add, contentDescription = null) },
+                    text = { Text("New trip") },
+                )
+            }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         contentWindowInsets = WindowInsets.safeDrawing,
@@ -91,7 +136,16 @@ fun TripsScreen(
                     item(key = "empty") { EmptyTrips() }
                 }
                 items(state.totals.trips, key = { it.trip.id }) { s ->
-                    TripCard(s, state.home, onClick = { onOpenTrip(s.trip.id) })
+                    val id = s.trip.id
+                    SwipeToDelete(enabled = !selecting, onDelete = { onSwipeDelete(id) }) {
+                        TripCard(
+                            s = s,
+                            home = state.home,
+                            selected = id in selected,
+                            onClick = { if (selecting) onToggleTrip(id) else onOpenTrip(id) },
+                            onLongClick = { if (selecting) onToggleTrip(id) else onLongPressTrip(id) },
+                        )
+                    }
                 }
             }
         }
@@ -127,19 +181,61 @@ private fun TotalHeader(state: TripsUiState) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun TripCard(s: TripSummary, home: CurrencyInfo, onClick: () -> Unit) {
+private fun SwipeToDelete(enabled: Boolean, onDelete: () -> Unit, content: @Composable () -> Unit) {
+    val state = rememberSwipeToDismissBoxState(
+        confirmValueChange = { value ->
+            if (value == SwipeToDismissBoxValue.EndToStart) {
+                onDelete()
+                true
+            } else {
+                false
+            }
+        },
+    )
+    SwipeToDismissBox(
+        state = state,
+        enableDismissFromStartToEnd = false,
+        gesturesEnabled = enabled,
+        backgroundContent = {
+            Box(
+                Modifier.fillMaxSize().clip(MaterialTheme.shapes.medium).background(MaterialTheme.colorScheme.errorContainer)
+                    .padding(horizontal = 24.dp),
+                contentAlignment = Alignment.CenterEnd,
+            ) {
+                Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.onErrorContainer)
+            }
+        },
+    ) { content() }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun TripCard(s: TripSummary, home: CurrencyInfo, selected: Boolean, onClick: () -> Unit, onLongClick: () -> Unit) {
     Card(
-        onClick = onClick,
         shape = MaterialTheme.shapes.medium,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        colors = CardDefaults.cardColors(
+            containerColor = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainer,
+        ),
+        modifier = Modifier
+            .clip(MaterialTheme.shapes.medium)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick, onLongClickLabel = "Select", role = Role.Button)
+            .semantics { this.selected = selected },
     ) {
         Row(
             Modifier.fillMaxWidth().padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            CodeBadge(s.info.code)
+            if (selected) {
+                Box(
+                    Modifier.size(44.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary),
+                    contentAlignment = Alignment.Center,
+                ) { Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary) }
+            } else {
+                CodeBadge(s.info.code)
+            }
             Column(Modifier.weight(1f)) {
                 Text(s.trip.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(
@@ -148,6 +244,8 @@ private fun TripCard(s: TripSummary, home: CurrencyInfo, onClick: () -> Unit) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                 )
+                val notes = s.trip.changeDue.size
+                if (notes > 0) ChangeBadge(notes)
             }
             Column(horizontalAlignment = Alignment.End) {
                 val homeMinor = s.homeMinor
@@ -161,6 +259,19 @@ private fun TripCard(s: TripSummary, home: CurrencyInfo, onClick: () -> Unit) {
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun ChangeBadge(n: Int) {
+    val description = if (n == 1) "1 change reminder" else "$n change reminders"
+    Surface(
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.tertiaryContainer,
+        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+        modifier = Modifier.padding(top = 4.dp).clearAndSetSemantics { contentDescription = description },
+    ) {
+        Text("$n change", style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp))
     }
 }
 

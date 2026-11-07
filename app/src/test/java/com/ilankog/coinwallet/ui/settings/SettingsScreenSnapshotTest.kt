@@ -23,4 +23,7 @@ class SettingsScreenSnapshotTest {
 
     @Test
     fun refreshing() = snap(base.copy(busy = true, lastResult = null))
+
+    @Test
+    fun hopOn() = snap(base.copy(hopEnabled = true, hop = SampleData.eur))
 }
