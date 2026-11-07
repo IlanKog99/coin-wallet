@@ -5,6 +5,7 @@ import com.ilankog.coinwallet.core.Trip
 import com.ilankog.coinwallet.core.TripsCodec
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -72,8 +73,7 @@ class TripRepository(
     suspend fun delete(id: String): Trip? = mutex.withLock {
         ensureLoaded()
         val trip = _trips.value.firstOrNull { it.id == id } ?: return@withLock null
-        commit(_trips.value.filterNot { it.id == id })
-        _notice.value = RepoNotice.Deleted(trip)
+        if (commit(_trips.value.filterNot { it.id == id })) _notice.value = RepoNotice.Deleted(trip)
         trip
     }
 
@@ -84,8 +84,8 @@ class TripRepository(
 
     private suspend fun ensureLoaded() {
         if (loaded) return
-        loaded = true
         _trips.value = withContext(io) { readFile() }
+        loaded = true // only after the read completed: a cancelled first load must retry
         _isLoaded.value = true
     }
 
@@ -117,13 +117,16 @@ class TripRepository(
         return emptyList()
     }
 
-    private suspend fun commit(next: List<Trip>) {
+    /** Returns true if the list was written to disk. NonCancellable so memory never silently outruns disk. */
+    private suspend fun commit(next: List<Trip>): Boolean {
         _trips.value = next
-        try {
-            withContext(io) { AtomicFiles.write(file, TripsCodec.encode(next)) }
+        return try {
+            withContext(io + NonCancellable) { AtomicFiles.write(file, TripsCodec.encode(next)) }
+            true
         } catch (e: IOException) {
             LOG.log(Level.SEVERE, "trips save failed", e)
             _notice.value = RepoNotice.SaveFailed
+            false
         }
     }
 

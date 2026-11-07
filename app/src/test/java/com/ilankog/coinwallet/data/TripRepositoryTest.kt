@@ -5,7 +5,10 @@ import com.ilankog.coinwallet.core.DenomKind
 import com.ilankog.coinwallet.core.Denomination
 import com.ilankog.coinwallet.core.Trip
 import com.ilankog.coinwallet.core.TripRules
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
@@ -19,6 +22,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.io.File
+import kotlin.coroutines.CoroutineContext
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class TripRepositoryTest {
@@ -101,13 +105,47 @@ class TripRepositoryTest {
     }
 
     @Test
-    fun `parallel increments are all applied`() = runTest {
-        val r = repo()
+    fun `parallel increments are all applied`() = runBlocking(Dispatchers.Default) {
+        val r = TripRepository(folder.root, io = Dispatchers.IO, newId = { "id1" }, clock = { 1000L })
         val t = r.create("Prague", "CZK")
-        (1..50).map { launch { r.update(t.id) { TripRules.increment(it, two) } } }.joinAll()
+        // Thread.sleep widens the read-modify-write window so a missing Mutex loses updates.
+        (1..50).map { launch { r.update(t.id) { Thread.sleep(1); TripRules.increment(it, two) } } }.joinAll()
         assertEquals(50, TripRules.count(r.trips.value.single(), two))
-        val again = repo()
+        val again = TripRepository(folder.root, io = Dispatchers.IO)
         again.load()
         assertEquals(50, TripRules.count(again.trips.value.single(), two))
+    }
+
+    @Test
+    fun `failed delete save shows SaveFailed not Deleted`() = runTest {
+        val r = repo(File(folder.root, "missing-dir"))
+        val t = r.create("Oslo", "NOK")
+        r.clearNotice(RepoNotice.SaveFailed)
+        r.delete(t.id)
+        assertEquals(RepoNotice.SaveFailed, r.notice.value)
+    }
+
+    @Test
+    fun `cancelled first load does not lose trips on next create`() = runTest {
+        val existing = repo().create("Prague", "CZK")
+        val gate = GatedDispatcher()
+        val r = TripRepository(folder.root, io = gate, newId = { "id9" }, clock = { 1000L })
+        val job = launch(UnconfinedTestDispatcher(testScheduler)) { r.load() }
+        job.cancel() // read is queued on the gated io, never ran
+        gate.open()
+        r.create("Oslo", "NOK")
+        assertEquals(listOf(existing.id, "id9"), r.trips.value.map { it.id })
+        val again = repo()
+        again.load()
+        assertEquals(listOf(existing.id, "id9"), again.trips.value.map { it.id })
+    }
+
+    private class GatedDispatcher : CoroutineDispatcher() {
+        private var open = false
+        private val queue = ArrayDeque<Runnable>()
+        fun open() { open = true; while (queue.isNotEmpty()) queue.removeFirst().run() }
+        override fun dispatch(context: CoroutineContext, block: Runnable) {
+            if (open) block.run() else queue.addLast(block)
+        }
     }
 }
