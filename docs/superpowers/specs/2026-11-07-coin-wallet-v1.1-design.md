@@ -9,7 +9,7 @@ Approved by Ilan on 2026-11-07. This extends `2026-11-07-coin-wallet-design.md`.
   - Long-pressing a card enters select mode with that trip selected. While in select mode:
     - Tapping a card toggles it.
     - The top bar shows "N selected" with **Select all**, **Delete** and **✕**.
-    - The FAB and pull-to-refresh are hidden.
+    - The FAB is hidden.
     - System back exits select mode.
     - Swiping is disabled.
   - Delete removes all selected trips in one write. The snackbar says "N trips deleted" (or "Trip deleted" for 1), and one Undo restores all of them.
