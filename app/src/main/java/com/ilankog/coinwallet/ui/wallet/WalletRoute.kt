@@ -10,9 +10,11 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.ilankog.coinwallet.core.CurrencyInfo
 import com.ilankog.coinwallet.core.Denomination
 import com.ilankog.coinwallet.core.Money
 import com.ilankog.coinwallet.core.RateSource
@@ -28,10 +30,29 @@ private sealed interface WalletDialog {
     data object Edit : WalletDialog
 }
 
+// Saved as a plain string so an open dialog survives rotation and process death.
+private fun WalletDialog.save(): String = when (this) {
+    is WalletDialog.Count -> "count:${d.key}"
+    WalletDialog.Rate -> "rate"
+    WalletDialog.Reset -> "reset"
+    WalletDialog.Delete -> "delete"
+    WalletDialog.Edit -> "edit"
+}
+
+private fun restoreDialog(saved: String?, info: CurrencyInfo): WalletDialog? = when {
+    saved == null -> null
+    saved.startsWith("count:") -> info.denominations.firstOrNull { it.key == saved.removePrefix("count:") }?.let(WalletDialog::Count)
+    saved == "rate" -> WalletDialog.Rate
+    saved == "reset" -> WalletDialog.Reset
+    saved == "delete" -> WalletDialog.Delete
+    saved == "edit" -> WalletDialog.Edit
+    else -> null
+}
+
 @Composable
 fun WalletRoute(vm: WalletViewModel, snackbarHostState: SnackbarHostState, onBack: () -> Unit) {
     val state by vm.state.collectAsStateWithLifecycle()
-    var dialog by remember { mutableStateOf<WalletDialog?>(null) }
+    var savedDialog by rememberSaveable { mutableStateOf<String?>(null) }
     var left by remember { mutableStateOf(false) }
     val leave: () -> Unit = {
         if (!left) {
@@ -52,20 +73,20 @@ fun WalletRoute(vm: WalletViewModel, snackbarHostState: SnackbarHostState, onBac
                     onBack = leave,
                     onIncrement = vm::increment,
                     onDecrement = vm::decrement,
-                    onCountClick = { dialog = WalletDialog.Count(it) },
-                    onEdit = { dialog = WalletDialog.Edit },
-                    onSetRate = { dialog = WalletDialog.Rate },
+                    onCountClick = { savedDialog = WalletDialog.Count(it).save() },
+                    onEdit = { savedDialog = WalletDialog.Edit.save() },
+                    onSetRate = { savedDialog = WalletDialog.Rate.save() },
                     onClearRate = vm::clearManualRate,
-                    onReset = { dialog = WalletDialog.Reset },
-                    onDelete = { dialog = WalletDialog.Delete },
+                    onReset = { savedDialog = WalletDialog.Reset.save() },
+                    onDelete = { savedDialog = WalletDialog.Delete.save() },
                 ),
             )
-            val close = { dialog = null }
-            when (val d = dialog) {
+            val close = { savedDialog = null }
+            when (val d = restoreDialog(savedDialog, ui.summary.info)) {
                 null -> Unit
                 is WalletDialog.Count -> {
-                    var text by remember(d) { mutableStateOf(TripRules.count(ui.summary.trip, d.d).toString()) }
-                    var error by remember(d) { mutableStateOf<String?>(null) }
+                    var text by rememberSaveable(d.d.key) { mutableStateOf(TripRules.count(ui.summary.trip, d.d).toString()) }
+                    var error by rememberSaveable(d.d.key) { mutableStateOf<String?>(null) }
                     AppDialog(onDismiss = close) {
                         CountDialogContent(
                             label = Money.label(d.d.value, ui.summary.info),
@@ -82,7 +103,7 @@ fun WalletRoute(vm: WalletViewModel, snackbarHostState: SnackbarHostState, onBac
                 }
                 WalletDialog.Rate -> {
                     val current = ui.summary.rate?.takeIf { it.source == RateSource.MANUAL }?.rate?.toPlainString() ?: ""
-                    var text by remember { mutableStateOf(current) }
+                    var text by rememberSaveable { mutableStateOf(current) }
                     AppDialog(onDismiss = close) {
                         RateDialogContent(
                             from = ui.summary.info.code,

@@ -63,8 +63,9 @@ fun TripSheet(
     var currency by rememberSaveable { mutableStateOf(initialCurrency) }
     var picking by rememberSaveable { mutableStateOf(false) }
     var query by rememberSaveable { mutableStateOf("") }
-    BackHandler(enabled = picking) { picking = false }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        // Inside the sheet: the sheet has its own window and back dispatcher.
+        BackHandler(enabled = picking) { picking = false }
         TripSheetContent(
             title = title,
             name = name,

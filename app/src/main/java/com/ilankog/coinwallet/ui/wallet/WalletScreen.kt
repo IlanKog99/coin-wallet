@@ -46,6 +46,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.ilankog.coinwallet.core.DenomKind
@@ -201,7 +203,10 @@ private fun DenomRow(d: Denomination, s: TripSummary, actions: WalletActions) {
                 onClick = { haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove); actions.onDecrement(d) },
                 enabled = count > 0,
             ) { Icon(Icons.Default.Remove, contentDescription = "Remove one $label") }
-            TextButton(onClick = { actions.onCountClick(d) }, modifier = Modifier.widthIn(min = 64.dp)) {
+            TextButton(
+                onClick = { actions.onCountClick(d) },
+                modifier = Modifier.widthIn(min = 64.dp).semantics { contentDescription = "$count × $label, tap to set count" },
+            ) {
                 Text(count.toString(), style = MaterialTheme.typography.titleLarge)
             }
             FilledTonalIconButton(

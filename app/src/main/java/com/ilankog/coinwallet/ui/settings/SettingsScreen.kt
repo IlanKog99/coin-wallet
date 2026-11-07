@@ -95,7 +95,7 @@ fun SettingsScreen(state: SettingsUiState, onBack: () -> Unit, onPickHome: () ->
                     Spacer(Modifier.width(8.dp))
                     Text("Refresh rates now")
                 }
-                state.lastResult?.let { r ->
+                state.lastResult?.takeIf { !state.busy }?.let { r ->
                     Text(
                         r.describe(),
                         style = MaterialTheme.typography.bodySmall,
